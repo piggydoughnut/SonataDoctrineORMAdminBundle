@@ -29,15 +29,37 @@ class Pager extends BasePager
      */
     public function computeNbResult()
     {
+        $count = null;
         $countQuery = clone $this->getQuery();
 
         if (count($this->getParameters()) > 0) {
             $countQuery->setParameters($this->getParameters());
         }
 
-        $countQuery->select(sprintf('count(DISTINCT %s.%s) as cnt', $countQuery->getRootAlias(), current($this->getCountColumn())));
 
-        return $countQuery->resetDQLPart('orderBy')->getQuery()->getSingleScalarResult();
+        /*  
+            these functions could potentially jam more target entity rows in one row,  
+            making the total count over target entity incorrect
+        */
+        $exceptions = [
+            'IFELSE'
+        ];
+
+        $moreRows = false;
+        foreach($exceptions as $ex) {
+            if(strstr($countQuery->getQuery()->getDQL(), $ex) ) {
+                $moreRows = true;
+            }
+        }
+
+        if(!$moreRows) {
+            $countQuery->select(sprintf('count(DISTINCT %s.%s) as cnt', $countQuery->getRootAlias(), current($this->getCountColumn())));
+            $count = $countQuery->resetDQLPart('orderBy')->getQuery()->getSingleScalarResult();
+        } else {
+            $count = count($countQuery->getQuery()->getResult());
+        }
+
+        return $count;
     }
 
     /**

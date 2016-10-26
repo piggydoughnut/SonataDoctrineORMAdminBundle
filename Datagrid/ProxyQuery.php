@@ -96,8 +96,26 @@ class ProxyQuery implements ProxyQueryInterface
             }
             $idxSelect .= ($idxSelect !== '' ? ', ' : '') . $idSelect;
         }
-        $queryBuilderId->resetDQLPart('select');
-        $queryBuilderId->add('select', 'DISTINCT '.$idxSelect);
+
+        /* 
+            these functions could potentially return more ids than a limit would on the same table
+            therefore resetting the DQL select part could cause incorrect results returned
+        */
+        $exceptions = [
+            'IFELSE'
+        ];
+
+        $moreRows = false;
+        foreach($exceptions as $ex) {
+            if(strstr($queryBuilderId->__toString(), $ex) ) {
+                $moreRows = true;
+            }
+        }
+
+        if(!$moreRows) {
+            $queryBuilderId->resetDQLPart('select');
+            $queryBuilderId->add('select', 'DISTINCT '.$idxSelect);
+        }
 
         // for SELECT DISTINCT, ORDER BY expressions must appear in idxSelect list
         /* Consider
