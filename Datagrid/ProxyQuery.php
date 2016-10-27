@@ -94,11 +94,10 @@ class ProxyQuery implements ProxyQueryInterface
             if ($metadata->hasAssociation($idName)) {
                 $idSelect = sprintf('IDENTITY(%s) as %s', $idSelect, $idName);
             }
-            $idxSelect .= ($idxSelect !== '' ? ', ' : '') . $idSelect;
+            $idxSelect .= ($idxSelect !== '' ? ', ' : '').$idSelect;
         }
 
-        /* 
-            these functions could potentially return more ids than a limit would on the same table
+        /* these functions could potentially return more ids than a limit would on the same table
             therefore resetting the DQL select part could cause incorrect results returned
         */
         $exceptions = [
@@ -127,28 +126,31 @@ class ProxyQuery implements ProxyQueryInterface
         if ($this->getSortBy()) {
             $sortBy = $this->getSortBy();
             if (strpos($sortBy, '.') === false) { // add the current alias
-                $sortBy = $queryBuilderId->getRootAlias() . '.' . $sortBy;
+                $sortBy = $queryBuilderId->getRootAlias().'.'.$sortBy;
             }
             $sortBy .= ' AS __order_by';
             $queryBuilderId->addSelect($sortBy);
         }
 
-        $results    = $queryBuilderId->getQuery()->execute(array(), Query::HYDRATE_ARRAY);
-        $idxMatrix  = array();
-        foreach ($results as $id) {
-            foreach ($idNames as $idName) {
-                $idxMatrix[$idName][] = $id[$idName];
+        if(!$moreRows) {
+            $results    = $queryBuilderId->getQuery()->execute(array(), Query::HYDRATE_ARRAY);
+            $idxMatrix  = array();
+            foreach ($results as $id) {
+                foreach ($idNames as $idName) {
+                    $idxMatrix[$idName][] = $id[$idName];
+                }
             }
-        }
 
         // step 4 : alter the query to match the targeted ids
-        foreach ($idxMatrix as $idName => $idx) {
-            if (count($idx) > 0) {
-                $idxParamName = sprintf('%s_idx', $idName);
-                $queryBuilder->andWhere(sprintf('%s IN (:%s)', $selects[$idName], $idxParamName));
-                $queryBuilder->setParameter($idxParamName, $idx);
-                $queryBuilder->setMaxResults(null);
-                $queryBuilder->setFirstResult(null);
+            foreach ($idxMatrix as $idName => $idx) {
+                if (count($idx) > 0) {
+                    $idxParamName = sprintf('%s_idx', $idName);
+                    $idxParamName = preg_replace('/[^\w]+/', '_', $idxParamName);
+                    $queryBuilder->andWhere(sprintf('%s IN (:%s)', $selects[$idName], $idxParamName));
+                    $queryBuilder->setParameter($idxParamName, $idx);
+                    $queryBuilder->setMaxResults(null);
+                    $queryBuilder->setFirstResult(null);
+                }
             }
         }
 
